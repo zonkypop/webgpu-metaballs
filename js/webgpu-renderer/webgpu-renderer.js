@@ -333,7 +333,9 @@ export class WebGPURenderer extends Renderer {
     const commandEncoder = this.device.createCommandEncoder({});
 
     // First update the metaballs isosurface and mesh.
-    this.metaballRenderer.updateCompute(commandEncoder, this.timestampHelper);
+    if (this.metaballRenderer) {
+      this.metaballRenderer.updateCompute(commandEncoder, this.timestampHelper);
+    }
 
     const computePass = commandEncoder.beginComputePass({
       timestampWrites: this.timestampHelper.timestampWrites('Clusters'),
@@ -421,7 +423,9 @@ export class WebGPURenderer extends Renderer {
     const commandEncoder = this.device.createCommandEncoder({});
 
     // First update the metaballs isosurface and mesh.
-    this.metaballRenderer.updateCompute(commandEncoder, this.timestampHelper);
+    if (this.metaballRenderer) {
+      this.metaballRenderer.updateCompute(commandEncoder, this.timestampHelper);
+    }
 
     // Next do a pass over the views to prep the uniforms/light clusters.
     const computePass = commandEncoder.beginComputePass({

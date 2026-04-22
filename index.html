@@ -68,17 +68,11 @@
       camera.orbitX = Math.PI * 0.1;
       camera.minOrbitX = Math.PI * -0.1;
 
-      const isMobile = navigator.userAgentData?.mobile;
-
       const appSettings = {
         scene: './media/models/dungeon/dungeon-opt.glb',
-        metaballMethod: 'gpuGenerated',
         renderLightSprites: true,
         renderEnvironment: true,
         environmentLights: true,
-        metaballLights: !isMobile,
-        metaballStyle: 'lava',
-        metaballResolution: isMobile ? 0.1 : 0.075,
         xrSessionType: 'immersive-vr',
         xrScaleFactor: 1.0,
       };
@@ -107,49 +101,7 @@
       });
       renderOptions.addBinding(appSettings, 'environmentLights').on('change', () => {
         if (renderer) {
-          renderer.enableLights(appSettings.environmentLights, appSettings.metaballLights);
-        }
-      });
-      renderOptions.addBinding(appSettings, 'metaballLights').on('change', () => {
-        if (renderer) {
-          renderer.enableLights(appSettings.environmentLights, appSettings.metaballLights);
-        }
-      });
-
-      renderOptions.addBinding(appSettings, 'metaballMethod', { options: {
-        'writeBuffer()': 'writeBuffer',
-        'New buffer each frame': 'newBuffer',
-        'New staging buffer each frame': 'newStaging',
-        'Single staging buffer re-mapped each frame': 'singleStaging',
-        'Ring of staging buffers': 'stagingRing',
-        'Compute shader': 'gpuGenerated',
-        'Point Cloud': 'pointCloud'
-      }}).on('change', (ev) => {
-        if (renderer) {
-          renderer.setMetaballMethod(appSettings.metaballMethod);
-        }
-      });
-
-      renderOptions.addBinding(appSettings, 'metaballStyle', { options: {
-        lava: 'lava',
-        water: 'water',
-        slime: 'slime',
-        none: 'none',
-      }}).on('change', () => {
-        if (renderer) {
-          renderer.setMetaballStyle(appSettings.metaballStyle);
-        }
-      });
-
-      renderOptions.addBinding(appSettings, 'metaballResolution', { options: {
-        low: 0.2,
-        medium: 0.1,
-        high: 0.075,
-        ultra: 0.05,
-        "CPU melting": 0.03,
-      }}).on('change', () => {
-        if (renderer) {
-          renderer.setMetaballStep(appSettings.metaballResolution);
+          renderer.enableLights(appSettings.environmentLights);
         }
       });
 
@@ -225,9 +177,6 @@
           renderer.updateLightRange(appSettings.maxLightRange);
           renderer.lightManager.render = appSettings.renderLightSprites;
           renderer.renderEnvironment = appSettings.renderEnvironment;
-          renderer.setMetaballStep(appSettings.metaballResolution);
-          renderer.setMetaballStyle(appSettings.metaballStyle);
-          renderer.setMetaballMethod(appSettings.metaballMethod);
 
           enableWebXRButton();
 
