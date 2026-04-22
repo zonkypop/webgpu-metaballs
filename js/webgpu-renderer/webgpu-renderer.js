@@ -25,7 +25,7 @@ import { WebGPULightSprites } from './webgpu-light-sprites.js';
 import { WebGPUglTF } from './webgpu-gltf.js';
 import { WebGPUView } from './webgpu-view.js';
 
-const SAMPLE_COUNT = 4;
+const SAMPLE_COUNT = 1;
 const DEPTH_FORMAT = "depth24plus";
 const CLEAR_VALUE = [0.0, 0.0, 0.0, 0.0];
 
