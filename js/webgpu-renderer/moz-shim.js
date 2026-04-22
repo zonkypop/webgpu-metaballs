@@ -1,5 +1,5 @@
 // NO LONGER USED. Leaving it here for a bit just in case I need to reference it
-// but this shim is no longer used by any of my samples, including webgpu-metaballs.
+// but this shim is no longer used by any of my samples.
 // It was required at one point in time, but Firefox's WebGPU implementation has
 // made great strides since then, and it's no longer necessary.
 

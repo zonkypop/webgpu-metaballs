@@ -25,26 +25,7 @@ import { WebGPULightSprites } from './webgpu-light-sprites.js';
 import { WebGPUglTF } from './webgpu-gltf.js';
 import { WebGPUView } from './webgpu-view.js';
 
-import {
-  MetaballWriteBuffer,
-  MetaballNewBuffer,
-  MetaballNewStagingBuffer,
-  MetaballSingleStagingBuffer,
-  MetaballStagingBufferRing,
-  MetaballComputeRenderer,
-  MetaballComputePointRenderer,
-} from './webgpu-metaball-renderer.js';
 import { TimestampHelper } from './timestamp-helper.js';
-
-const MetaballMethods = {
-  writeBuffer: MetaballWriteBuffer,
-  newBuffer: MetaballNewBuffer,
-  newStaging: MetaballNewStagingBuffer,
-  singleStaging: MetaballSingleStagingBuffer,
-  stagingRing: MetaballStagingBufferRing,
-  gpuGenerated: MetaballComputeRenderer,
-  pointCloud: MetaballComputePointRenderer,
-};
 
 const SAMPLE_COUNT = 4;
 const DEPTH_FORMAT = "depth24plus";
@@ -62,8 +43,6 @@ export class WebGPURenderer extends Renderer {
     this.depthFormat = DEPTH_FORMAT;
 
     this.context = this.canvas.getContext('webgpu');
-
-    this.metaballMethod = null;
 
     this.needsComputeWorkaround = false;
 
@@ -189,19 +168,6 @@ export class WebGPURenderer extends Renderer {
         }]
       }),
 
-      metaball: this.device.createBindGroupLayout({
-        label: `lava-bgl`,
-        entries: [{
-          binding: 0, // sampler
-          visibility: GPUShaderStage.FRAGMENT,
-          sampler: {}
-        },
-        {
-          binding: 1, // texture
-          visibility: GPUShaderStage.FRAGMENT,
-          texture: {}
-        }]
-      })
     };
 
     this.bindGroupLayouts.frame.label = "frame-bgl";
@@ -236,9 +202,6 @@ export class WebGPURenderer extends Renderer {
 
     this.lightSprites = new WebGPULightSprites(this);
 
-    this.metaballRenderer = null;
-    this.metaballsNeedUpdate = true;
-
     this.timestampHelper = new TimestampHelper(this.device);
   }
 
@@ -248,70 +211,11 @@ export class WebGPURenderer extends Renderer {
     if (this.inAR) {
       this.scene.setNodeFilter(/floor_ring/);
     }
-    this.updateMetaballs(0);
-  }
-
-  setMetaballMethod(method) {
-    const rendererConstructor = MetaballMethods[method];
-    if (!rendererConstructor) {
-      this.metaballRenderer = null;
-      return;
-    }
-
-    this.metaballRenderer = new rendererConstructor(this, this.marchingCubes.volume);
-    this.metaballsNeedUpdate = true;
-    this.metaballMethod = method;
-  }
-
-  async setMetaballStyle(style) {
-    super.setMetaballStyle(style);
-
-    let metaballTexture;
-    if (this.metaballTexturePath) {
-      metaballTexture = await this.textureLoader.fromUrl(this.metaballTexturePath, {colorSpace: 'sRGB'});
-    } else {
-      metaballTexture = this.textureLoader.fromColor(0, 0, 0);
-    }
-
-    this.bindGroups.metaball = this.device.createBindGroup({
-      layout: this.bindGroupLayouts.metaball,
-      entries: [{
-        binding: 0,
-        resource: this.defaultSampler,
-      }, {
-        binding: 1,
-        resource: metaballTexture.texture.createView(),
-      }],
-    });
-  }
-
-  setMetaballStep(step) {
-    super.setMetaballStep(step);
-    this.setMetaballMethod(this.metaballMethod);
-  }
-
-  updateMetaballs(timestamp) {
-    if (this.drawMetaballs && this.metaballsNeedUpdate && this.metaballRenderer) {
-      this.metaballsNeedUpdate = false;
-
-      super.updateMetaballs(timestamp);
-
-      this.metaballRenderer.updateMetaballs(this.metaballs, this.marchingCubes);
-
-      this.metaballRenderer.update(this.marchingCubes);
-
-      this.metaballsNeedUpdate = true;
-    }
   }
 
   renderScene(renderPass, gpuView) {
     if (this.scene && this.renderEnvironment) {
       this.scene.draw(renderPass, gpuView);
-    }
-
-    if (this.drawMetaballs && this.metaballRenderer && this.bindGroups.metaball) {
-      // Draw metaballs.
-      this.metaballRenderer.draw(renderPass, gpuView);
     }
 
     if (this.lightManager.render) {
@@ -331,11 +235,6 @@ export class WebGPURenderer extends Renderer {
     gpuView.updateMatrices(timestamp, this.camera);
 
     const commandEncoder = this.device.createCommandEncoder({});
-
-    // First update the metaballs isosurface and mesh.
-    if (this.metaballRenderer) {
-      this.metaballRenderer.updateCompute(commandEncoder, this.timestampHelper);
-    }
 
     const computePass = commandEncoder.beginComputePass({
       timestampWrites: this.timestampHelper.timestampWrites('Clusters'),
@@ -399,7 +298,6 @@ export class WebGPURenderer extends Renderer {
 
     const localFloorSpace = await this.xrSession.requestReferenceSpace('local-floor');
 
-    // Scoot our reference space origin back a bit so that we don't start inside the metaballs.
     const offset = new XRRigidTransform({z: -1.8});
     this.xrRefSpace = localFloorSpace.getOffsetReferenceSpace(offset);
 
@@ -422,12 +320,7 @@ export class WebGPURenderer extends Renderer {
 
     const commandEncoder = this.device.createCommandEncoder({});
 
-    // First update the metaballs isosurface and mesh.
-    if (this.metaballRenderer) {
-      this.metaballRenderer.updateCompute(commandEncoder, this.timestampHelper);
-    }
-
-    // Next do a pass over the views to prep the uniforms/light clusters.
+    // Do a pass over the views to prep the uniforms/light clusters.
     const computePass = commandEncoder.beginComputePass({
       timestampWrites: this.timestampHelper.timestampWrites('Clusters'),
     });

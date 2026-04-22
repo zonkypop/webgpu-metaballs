@@ -1,16 +1,20 @@
-<!doctype html>
+<!DOCTYPE html>
 
 <html>
   <head>
-    <meta charset='utf-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
-    <meta name='mobile-web-app-capable' content='yes'>
-    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
 
-    <title>WebGPU Metaballs</title>
+    <title>WebGPU - no MetaBalls</title>
 
     <style>
-      html, body {
+      html,
+      body {
         height: 100%;
         margin: 0;
         background-color: #000000;
@@ -40,22 +44,22 @@
   </head>
   <body>
     <script type="importmap">
-    {
+      {
         "imports": {
-            "gl-matrix": "./node_modules/gl-matrix/esm/index.js",
-            "webgpu-texture-loader": "./node_modules/web-texture-tool/build/webgpu-texture-loader.js",
-            "wgsl-preprocessor": "./node_modules/wgsl-preprocessor/wgsl-preprocessor.js"
+          "gl-matrix": "./node_modules/gl-matrix/esm/index.js",
+          "webgpu-texture-loader": "./node_modules/web-texture-tool/build/webgpu-texture-loader.js",
+          "wgsl-preprocessor": "./node_modules/wgsl-preprocessor/wgsl-preprocessor.js"
         }
-    }
+      }
     </script>
     <script type="module">
-      import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.1/dist/tweakpane.min.js';
+      import { Pane } from "https://cdn.jsdelivr.net/npm/tweakpane@4.0.1/dist/tweakpane.min.js";
 
-      import { Gltf2Loader } from './js/mini-gltf2.js';
-      import { OrbitCamera } from './js/camera.js';
+      import { Gltf2Loader } from "./js/mini-gltf2.js";
+      import { OrbitCamera } from "./js/camera.js";
 
-      import { WebGPURenderer } from './js/webgpu-renderer/webgpu-renderer.js';
-      import { PerformanceTracker } from './js/performance-tracker.js';
+      import { WebGPURenderer } from "./js/webgpu-renderer/webgpu-renderer.js";
+      import { PerformanceTracker } from "./js/performance-tracker.js";
 
       let renderer = null;
       let gltf = null;
@@ -69,18 +73,18 @@
       camera.minOrbitX = Math.PI * -0.1;
 
       const appSettings = {
-        scene: './media/models/dungeon/dungeon-opt.glb',
+        scene: "./media/models/dungeon/dungeon-opt.glb",
         renderLightSprites: true,
         renderEnvironment: true,
         environmentLights: true,
-        xrSessionType: 'immersive-vr',
+        xrSessionType: "immersive-vr",
         xrScaleFactor: 1.0,
       };
 
       const stats = new PerformanceTracker();
 
       const pane = new Pane({
-        title: document.title.split('|')[0],
+        title: document.title.split("|")[0],
       });
 
       stats.bindToTweakpane(pane, false);
@@ -89,21 +93,27 @@
         title: `Rendering Options`,
         expanded: false,
       });
-      renderOptions.addBinding(appSettings, 'renderLightSprites').on('change', () => {
-        if (renderer) {
-          renderer.lightManager.render = appSettings.renderLightSprites;
-        }
-      });
-      renderOptions.addBinding(appSettings, 'renderEnvironment').on('change', () => {
-        if (renderer) {
-          renderer.renderEnvironment = appSettings.renderEnvironment;
-        }
-      });
-      renderOptions.addBinding(appSettings, 'environmentLights').on('change', () => {
-        if (renderer) {
-          renderer.enableLights(appSettings.environmentLights);
-        }
-      });
+      renderOptions
+        .addBinding(appSettings, "renderLightSprites")
+        .on("change", () => {
+          if (renderer) {
+            renderer.lightManager.render = appSettings.renderLightSprites;
+          }
+        });
+      renderOptions
+        .addBinding(appSettings, "renderEnvironment")
+        .on("change", () => {
+          if (renderer) {
+            renderer.renderEnvironment = appSettings.renderEnvironment;
+          }
+        });
+      renderOptions
+        .addBinding(appSettings, "environmentLights")
+        .on("change", () => {
+          if (renderer) {
+            renderer.enableLights(appSettings.environmentLights);
+          }
+        });
 
       async function toggleWebXR() {
         if (xrSession) {
@@ -111,31 +121,40 @@
           return;
         }
 
-        xrSession = await navigator.xr.requestSession(appSettings.xrSessionType, {
-          requiredFeatures: ['webgpu', 'local-floor'],
+        xrSession = await navigator.xr.requestSession(
+          appSettings.xrSessionType,
+          {
+            requiredFeatures: ["webgpu", "local-floor"],
+          }
+        );
+        console.log("Got a WebXR Session!");
+        renderer.setWebXRSession(xrSession, {
+          scaleFactor: appSettings.xrScaleFactor,
         });
-        console.log('Got a WebXR Session!');
-        renderer.setWebXRSession(xrSession, { scaleFactor: appSettings.xrScaleFactor });
-        xrButton.title = 'Exit XR';
+        xrButton.title = "Exit XR";
 
-        xrSession.addEventListener('end', () => {
+        xrSession.addEventListener("end", () => {
           renderer.setWebXRSession(null);
           xrSession = null;
-          xrButton.title = 'Enter XR';
+          xrButton.title = "Enter XR";
         });
       }
 
       async function enableWebXRButton() {
-        if (!('XRGPUBinding' in window)) {
-          console.log('WebGPU/WebXR bindings not supported.');
+        if (!("XRGPUBinding" in window)) {
+          console.log("WebGPU/WebXR bindings not supported.");
           return;
         }
 
-        const vrSupported = await navigator.xr.isSessionSupported('immersive-vr');
-        const arSupported = await navigator.xr.isSessionSupported('immersive-ar');
+        const vrSupported = await navigator.xr.isSessionSupported(
+          "immersive-vr"
+        );
+        const arSupported = await navigator.xr.isSessionSupported(
+          "immersive-ar"
+        );
 
         if (!vrSupported && !arSupported) {
-          console.log('No WebXR sessions are supported.');
+          console.log("No WebXR sessions are supported.");
           return;
         }
 
@@ -144,21 +163,26 @@
           expanded: false,
         });
 
-        xrButton = xrFolder.addButton({ title: 'Enter XR' });
-        xrButton.on('click', toggleWebXR);
+        xrButton = xrFolder.addButton({ title: "Enter XR" });
+        xrButton.on("click", toggleWebXR);
 
         const xrOptions = {};
         if (arSupported) {
-          xrOptions.AR = 'immersive-ar';
-          appSettings.xrSessionType = 'immersive-ar';
+          xrOptions.AR = "immersive-ar";
+          appSettings.xrSessionType = "immersive-ar";
         }
         if (vrSupported) {
-          xrOptions.VR = 'immersive-vr';
-          appSettings.xrSessionType = 'immersive-vr';
+          xrOptions.VR = "immersive-vr";
+          appSettings.xrSessionType = "immersive-vr";
         }
-        xrFolder.addBinding(appSettings, 'xrSessionType', { options: xrOptions });
+        xrFolder.addBinding(appSettings, "xrSessionType", {
+          options: xrOptions,
+        });
 
-        xrFolder.addBinding(appSettings, 'xrScaleFactor', { min: 0.25, max: 1.25 });
+        xrFolder.addBinding(appSettings, "xrScaleFactor", {
+          min: 0.25,
+          max: 1.25,
+        });
       }
 
       async function init() {
@@ -187,13 +211,12 @@
             renderer.setScene(gltf);
           });
         } catch (err) {
-          console.error('renderer init failed', err);
+          console.error("renderer init failed", err);
           renderer.stop();
           renderer = null;
         }
       }
       init();
-
     </script>
   </body>
 </html>

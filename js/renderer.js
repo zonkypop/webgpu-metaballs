@@ -19,8 +19,6 @@
 // SOFTWARE.
 
 import { vec3, mat4 } from 'gl-matrix';
-import { Metaballs } from './metaballs.js';
-import { MarchingCubes } from './marching-cubes.js'
 
 const lightFloatCount = 8;
 const lightByteSize = lightFloatCount * 4;
@@ -120,10 +118,6 @@ export class Renderer {
 
     // Ambient color
     //vec3.set(this.lightManager.ambientColor, 0.02, 0.02, 0.02);
-
-    this.metaballs = new Metaballs();
-    this.drawMetaballs = true;
-    this.marchingCubes = null;
 
     this.xrSession = null;
 
@@ -247,74 +241,9 @@ export class Renderer {
     window.removeEventListener('resize', this.resizeCallback);
   }
 
-  setMetaballMethod(method) {
-    // Override
-  }
-
-  setMetaballStyle(style) {
-    this.drawMetaballs = true;
-    switch(style) {
-      case 'lava':
-        this.metaballLightColor = [0.9, 0.1, 0.0];
-        this.metaballTexturePath = './media/textures/lava.jpg';
-        break;
-      case 'slime':
-        this.metaballLightColor = [0.0, 0.9, 0.0];
-        this.metaballTexturePath = './media/textures/slime.png';
-        break;
-      case 'water':
-        this.metaballLightColor = [0.4, 0.5, 0.9];
-        this.metaballTexturePath = './media/textures/water.jpg';
-        break;
-      case 'none':
-        this.drawMetaballs = false;
-        this.metaballTexturePath = null;
-        this.lightManager.lightCount = this.sceneLightCount;
-        break;
-    }
-  }
-
-  setMetaballStep(step) {
-    this.marchingCubes = new MarchingCubes({
-      xMin: -1.05,
-      xMax: 1.05,
-      xStep: step,
-      yMin: -0.1,
-      yMax: 2.5,
-      yStep: step,
-      zMin: -1.05,
-      zMax: 1.1,
-      zStep: step,
-    });
-  }
-
-  updateMetaballs(timestamp) {
-    this.metaballs.updateBalls(timestamp);
-
-    // Attach a light to each ball
-    let lightIndex = this.sceneLightCount;
-    for (const ball of this.metaballs.balls) {
-      let light = this.lightManager.lights[lightIndex];
-      light.static = true;
-
-      vec3.copy(light.color, this.metaballLightColor);
-      light.intensity = 4;
-      vec3.copy(light.position, ball.position);
-
-      lightIndex++;
-    }
-
-    this.lightManager.lightCount = lightIndex;
-  }
-
-  enableLights(enableSceneLights, enabledMetaballLights) {
-    let i = 0;
-    for (; i < this.sceneLightCount; ++i) {
+  enableLights(enableSceneLights) {
+    for (let i = 0; i < this.sceneLightCount; ++i) {
       this.lightManager.lights[i].enabled = enableSceneLights;
-    }
-
-    for (; i < this.lightManager.lightCount; ++i) {
-      this.lightManager.lights[i].enabled = enabledMetaballLights;
     }
   }
 
@@ -322,9 +251,6 @@ export class Renderer {
   beforeFrame(timestamp, timeDelta) {
     //this.timeArray[0] = timestamp;
 
-    if (this.drawMetaballs) {
-      this.updateMetaballs(timestamp);
-    }
   }
 
   onResize(width, height) {
