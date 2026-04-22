@@ -204,6 +204,7 @@ export class Renderer {
 
     this.sceneLightCount = gltf.lights.length;
     this.lightManager.lightCount = gltf.lights.length;
+    console.log(`Scene lights: ${gltf.lights.length}`);
   }
 
   setViewMatrix(viewMatrix) {

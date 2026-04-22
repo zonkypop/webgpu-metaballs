@@ -18,11 +18,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { wgsl } from 'wgsl-preprocessor';
-import { ProjectionUniforms, ViewUniforms, ModelUniforms, LightUniforms, MaterialUniforms, ColorConversions, ATTRIB_MAP } from '../shaders/common.js';
+import { wgsl } from "wgsl-preprocessor";
+import {
+  ProjectionUniforms,
+  ViewUniforms,
+  ModelUniforms,
+  LightUniforms,
+  MaterialUniforms,
+  ColorConversions,
+  ATTRIB_MAP,
+} from "../shaders/common.js";
 
-
-function PBR_VARYINGS(defines) { return wgsl`
+function PBR_VARYINGS(defines) {
+  return wgsl`
 struct VertexOutput {
   @builtin(position) position : vec4f,
   @location(0) worldPos : vec3f,
@@ -39,7 +47,8 @@ struct VertexOutput {
 `;
 }
 
-export function PBRVertexSource(defines) { return wgsl`
+export function PBRVertexSource(defines) {
+  return wgsl`
   ${ProjectionUniforms}
   ${ViewUniforms}
   ${ModelUniforms}
@@ -83,7 +92,8 @@ export function PBRVertexSource(defines) { return wgsl`
   }`;
 }
 
-function PBRSurfaceInfo(defines) { return wgsl`
+function PBRSurfaceInfo(defines) {
+  return wgsl`
   ${PBR_VARYINGS(defines)}
 
   struct SurfaceInfo {
@@ -144,11 +154,12 @@ function PBRSurfaceInfo(defines) { return wgsl`
     surface.emissive = surface.emissive * textureSample(emissiveTexture, defaultSampler, input.texCoord).rgb;
 #endif
   }
-`; }
+`;
+}
 
 // Much of the shader used here was pulled from https://learnopengl.com/PBR/Lighting
 // Thanks!
-const PBRFunctions = /*wgsl*/`
+const PBRFunctions = /*wgsl*/ `
 const PI = ${Math.PI};
 
 struct PuctualLight {
@@ -227,8 +238,6 @@ fn lightRadiance(light: ptr<function, PuctualLight>, surface: ptr<function, Surf
     // add to outgoing radiance Lo
     return (kD * surface.albedo / vec3(PI) + specular) * radiance * NdotL;
   } else {*/
-    // For completely rough surfaces (or near to it) use a significantly simplified model.
-    // TODO: Definitely not energy preserving
     return (surface.albedo / vec3(PI)) * radiance * NdotL;
   //}
 }
@@ -243,7 +252,8 @@ fn lightRadianceSimple(light: ptr<function, PuctualLight>, surface: ptr<function
   return (surface.albedo / vec3(PI)) * radiance * NdotL;
 }`;
 
-export function PBRFragmentSource(defines) { return /*wgsl*/`
+export function PBRFragmentSource(defines) {
+  return /*wgsl*/ `
   ${ColorConversions}
   ${MaterialUniforms}
   ${LightUniforms}
@@ -256,21 +266,34 @@ export function PBRFragmentSource(defines) { return /*wgsl*/`
     var surface: SurfaceInfo;
     GetSurfaceInfo(input, &surface);
 
-    // TODO: Proper lighting disabled for XR debugging
-    // var Lo = vec3(0.0);
-    // for (var i = 0u; i < globalLights.lightCount; i = i + 1u) {
-    //   let gLight = &globalLights.lights[i];
-    //   var light: PuctualLight;
-    //   light.pointToLight = gLight.position.xyz - input.worldPos;
-    //   light.range = gLight.range;
-    //   light.color = gLight.color;
-    //   light.intensity = gLight.intensity;
-    //   Lo = Lo + lightRadiance(&light, &surface);
-    // }
-    // let ambient = globalLights.ambient * surface.albedo * surface.ao;
-    // let color = linearTosRGB(Lo + ambient + surface.emissive);
+    var Lo = vec3(0.0);
 
-    let color = linearTosRGB(surface.albedo + surface.emissive);
+    // BUG: Quest 3 (Adreno) WebXR+WebGPU crashes when the loop bound is
+    // read from a storage buffer at runtime (e.g. globalLights.lightCount).
+    // Using a compile-time constant loop bound works fine.
+    //
+    // CRASHES on Quest 3:
+    //   for (var i = 0u; i < globalLights.lightCount; i = i + 1u) {
+    //
+    // Also crashes (local var + min() to cap the bound):
+    //   let numLights = min(globalLights.lightCount, 32u);
+    //   for (var i = 0u; i < numLights; i = i + 1u) {
+    //
+    // WORKS on Quest 3:
+    for (var i = 0u; i < 4u; i = i + 1u) {
+      let gLight = &globalLights.lights[i];
+
+      var light: PuctualLight;
+      light.pointToLight = gLight.position.xyz - input.worldPos;
+      light.range = gLight.range;
+      light.color = gLight.color;
+      light.intensity = gLight.intensity;
+
+      Lo = Lo + lightRadiance(&light, &surface);
+    }
+
+    let ambient = globalLights.ambient * surface.albedo * surface.ao;
+    let color = linearTosRGB(Lo + ambient + surface.emissive);
     return vec4(color, surface.baseColor.a);
   }`;
-};
+}
