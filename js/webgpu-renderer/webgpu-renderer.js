@@ -42,8 +42,6 @@ export class WebGPURenderer extends Renderer {
 
     this.context = this.canvas.getContext('webgpu');
 
-    this.needsComputeWorkaround = false;
-
     this.xrBinding = null;
     this.xrLayer = null;
     this.xrRefSpace = null;
@@ -55,10 +53,6 @@ export class WebGPURenderer extends Renderer {
       powerPreference: "high-performance",
       xrCompatible: true,
     });
-
-    // Some Qualcomm devices (like the Pixel 4) have issues with the indirect draw commands used
-    // normally, so use an alternate path for them.
-    this.needsComputeWorkaround = this.adapter.info?.architecture === 'adreno-6xx';
 
     // Enable compressed textures if available
     const requiredFeatures = [];
@@ -96,20 +90,16 @@ export class WebGPURenderer extends Renderer {
         label: `frame-bgl`,
         entries: [{
           binding: 0, // Projection uniforms
-          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
           buffer: {},
         }, {
           binding: 1, // View uniforms
-          visibility: GPUShaderStage.VERTEX | GPUShaderStage.COMPUTE,
+          visibility: GPUShaderStage.VERTEX,
           buffer: {}
         }, {
           binding: 2, // Light uniforms
-          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
           buffer: { type: 'read-only-storage' }
-        }, {
-          binding: 3, // Cluster Lights storage
-          visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
-          buffer: { type: 'storage' }
         }]
       }),
 
@@ -227,10 +217,6 @@ export class WebGPURenderer extends Renderer {
 
     const commandEncoder = this.device.createCommandEncoder({});
 
-    const computePass = commandEncoder.beginComputePass();
-    gpuView.clusteredLights.updateClusters(computePass);
-    computePass.end();
-
     const currentTexture = this.context.getCurrentTexture();
     const currentView = currentTexture.createView({ format: this.renderFormat });
     const colorAttachment = {
@@ -300,9 +286,6 @@ export class WebGPURenderer extends Renderer {
 
     const commandEncoder = this.device.createCommandEncoder({});
 
-    // Do a pass over the views to prep the uniforms/light clusters.
-    const computePass = commandEncoder.beginComputePass();
-
     const subImages = [];
 
     for (let viewIndex = 0; viewIndex < pose.views.length; ++viewIndex) {
@@ -310,14 +293,10 @@ export class WebGPURenderer extends Renderer {
       const gpuView = this.views[viewIndex];
       subImages[viewIndex] = this.xrBinding.getViewSubImage(this.xrLayer, xrView);
 
-      // This uses writeBuffer, so it will be enqueued before the command buffer is submitted.
       gpuView.updateMatricesForXR(timestamp, xrView, subImages[viewIndex]);
-      gpuView.clusteredLights.updateClusters(computePass);
     }
 
-    computePass.end();
-
-    // Next loop through all the views again and just do the rendering.
+    // Loop through all the views and do the rendering.
     for (let viewIndex = 0; viewIndex < pose.views.length; ++viewIndex) {
       const xrView = pose.views[viewIndex];
       const gpuView = this.views[viewIndex];

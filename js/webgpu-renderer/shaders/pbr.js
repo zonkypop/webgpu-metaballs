@@ -20,7 +20,7 @@
 
 import { wgsl } from 'wgsl-preprocessor';
 import { ProjectionUniforms, ViewUniforms, ModelUniforms, LightUniforms, MaterialUniforms, ColorConversions, ATTRIB_MAP } from '../shaders/common.js';
-import { ClusterLightsStructs, TileFunctions } from '../shaders/clustered-compute.js';
+
 
 function PBR_VARYINGS(defines) { return wgsl`
 struct VertexOutput {
@@ -243,13 +243,10 @@ fn lightRadianceSimple(light: ptr<function, PuctualLight>, surface: ptr<function
   return (surface.albedo / vec3(PI)) * radiance * NdotL;
 }`;
 
-export function PBRClusteredFragmentSource(defines) { return /*wgsl*/`
+export function PBRFragmentSource(defines) { return /*wgsl*/`
   ${ColorConversions}
-  ${ProjectionUniforms}
-  ${ClusterLightsStructs}
   ${MaterialUniforms}
   ${LightUniforms}
-  ${TileFunctions}
 
   ${PBRSurfaceInfo(defines)}
   ${PBRFunctions}
@@ -259,15 +256,9 @@ export function PBRClusteredFragmentSource(defines) { return /*wgsl*/`
     var surface: SurfaceInfo;
     GetSurfaceInfo(input, &surface);
 
-    // reflectance equation
     var Lo = vec3(0.0);
 
-    let clusterIndex = getClusterIndex(input.position);
-    let lightOffset  = clusterLights.lights[clusterIndex].offset;
-    let lightCount   = clusterLights.lights[clusterIndex].count;
-
-    for (var lightIndex = 0u; lightIndex < lightCount; lightIndex = lightIndex + 1u) {
-      let i = clusterLights.indices[lightOffset + lightIndex];
+    for (var i = 0u; i < globalLights.lightCount; i = i + 1u) {
       let gLight = &globalLights.lights[i];
 
       var light: PuctualLight;
@@ -276,9 +267,7 @@ export function PBRClusteredFragmentSource(defines) { return /*wgsl*/`
       light.color = gLight.color;
       light.intensity = gLight.intensity;
 
-      // calculate per-light radiance and add to outgoing radiance Lo
       Lo = Lo + lightRadiance(&light, &surface);
-      //Lo = Lo + lightRadianceSimple(&light, &surface);
     }
 
     let ambient = globalLights.ambient * surface.albedo * surface.ao;

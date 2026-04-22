@@ -19,7 +19,7 @@
 // SOFTWARE.
 
 import { RenderBundleHelper } from './render-bundle-helper.js';
-import { PBRVertexSource, PBRClusteredFragmentSource } from './shaders/pbr.js';
+import { PBRVertexSource, PBRFragmentSource } from './shaders/pbr.js';
 
 export class PBRRenderBundleHelper extends RenderBundleHelper {
   constructor(renderer) {
@@ -67,5 +67,5 @@ export class PBRRenderBundleHelper extends RenderBundleHelper {
   }
 
   getVertexSource(defines) { return PBRVertexSource(defines); }
-  getFragmentSource(defines) { return PBRClusteredFragmentSource(defines); }
+  getFragmentSource(defines) { return PBRFragmentSource(defines); }
 }
