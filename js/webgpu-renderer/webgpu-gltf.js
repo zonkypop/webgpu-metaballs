@@ -36,8 +36,6 @@ export class WebGPUglTF {
     this.whiteTextureView = renderer.textureLoader.fromColor(1.0, 1.0, 1.0, 1.0).texture.createView();
     this.blueTextureView = renderer.textureLoader.fromColor(0, 0, 1.0, 0).texture.createView();
 
-    this.renderBundles = new WeakMap();
-
     this.nodeFilter = null;
 
     this._initGLTF(gltf);
@@ -218,18 +216,12 @@ export class WebGPUglTF {
   }
 
   setNodeFilter(nodeFilter) {
-    this.renderBundles = new WeakMap();
     this.nodeFilter = nodeFilter;
   }
 
   draw(passEncoder, view) {
-    let renderBundle = this.renderBundles.get(view);
-    if (!renderBundle && this.renderBundleHelper) {
-      renderBundle = this.renderBundleHelper.createRenderBundle(this.primitives, view, this.nodeFilter);
-      this.renderBundles.set(view, renderBundle);
-    }
-    if (renderBundle) {
-      passEncoder.executeBundles([renderBundle]);
+    if (this.renderBundleHelper) {
+      this.renderBundleHelper.drawDirect(passEncoder, this.primitives, view, this.nodeFilter);
     }
   }
 }

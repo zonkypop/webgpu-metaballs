@@ -125,16 +125,12 @@ export class RenderBundleHelper {
     return this.pipelineCache.getRenderPipeline(pipelineDescriptor);
   }
 
-  createRenderBundle(primitives, view, nodeFilter = null) {
-    // Generate a render bundle that draws all the given primitives with the specified technique.
-    // The sort up front is a bit heavy, but that's OK because the end result is a render bundle
-    // will excute very quickly.
-    const opaquePipelines = new Map(); // Map<id -> CachedPipeline>;
-    const blendedPipelines = new Map(); // Map<id -> CachedPipeline>;
-    const pipelineMaterials = new Map(); // WeakMap<id -> Map<Material -> Primitive[]>>
+  sortPrimitives(primitives, nodeFilter) {
+    const opaquePipelines = new Map();
+    const blendedPipelines = new Map();
+    const pipelineMaterials = new Map();
 
     for (const primitive of primitives) {
-      // If there's a node filter, skip any primitives that don't match the nodes we're looking for.
       if (nodeFilter && !primitive.renderData.name?.match(nodeFilter)) { continue; }
 
       const pipeline = this.getPrimitivePipeline(primitive);
@@ -147,7 +143,7 @@ export class RenderBundleHelper {
 
       let materialPrimitiveMap = pipelineMaterials.get(pipeline);
       if (!materialPrimitiveMap) {
-        materialPrimitiveMap = new Map(); // Map<Material -> Primitive[]>
+        materialPrimitiveMap = new Map();
         pipelineMaterials.set(pipeline, materialPrimitiveMap);
       }
 
@@ -162,24 +158,21 @@ export class RenderBundleHelper {
       materialPrimitives.push(primitive);
     }
 
-    // Create a bundle we can use to replay our scene drawing each frame
-    const renderBundleEncoder = this.device.createRenderBundleEncoder(this.renderBundleDescriptor);
+    return { opaquePipelines, blendedPipelines, pipelineMaterials };
+  }
 
-    renderBundleEncoder.setBindGroup(BIND_GROUP.Frame, view.bindGroup);
+  drawDirect(passEncoder, primitives, view, nodeFilter = null) {
+    const { opaquePipelines, blendedPipelines, pipelineMaterials } = this.sortPrimitives(primitives, nodeFilter);
 
-    // Opaque primitives first
+    passEncoder.setBindGroup(BIND_GROUP.Frame, view.bindGroup);
+
     for (let pipeline of opaquePipelines.values()) {
-      const materialPrimitives = pipelineMaterials.get(pipeline);
-      this.drawPipelinePrimitives(renderBundleEncoder, pipeline, materialPrimitives);
+      this.drawPipelinePrimitives(passEncoder, pipeline, pipelineMaterials.get(pipeline));
     }
 
-    // Blended primitives next
     for (let pipeline of blendedPipelines.values()) {
-      const materialPrimitives = pipelineMaterials.get(pipeline);
-      this.drawPipelinePrimitives(renderBundleEncoder, pipeline, materialPrimitives);
+      this.drawPipelinePrimitives(passEncoder, pipeline, pipelineMaterials.get(pipeline));
     }
-
-    return renderBundleEncoder.finish();
   }
 
   drawPipelinePrimitives(encoder, pipeline, materialPrimitives) {
