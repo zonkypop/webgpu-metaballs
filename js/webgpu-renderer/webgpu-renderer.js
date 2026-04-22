@@ -260,9 +260,9 @@ export class WebGPURenderer extends Renderer {
   }
 
   renderScene(renderPass, gpuView) {
-    renderPass.setPipeline(this.trianglePipeline);
-    renderPass.setBindGroup(0, gpuView.bindGroup);
-    renderPass.draw(3);
+    if (this.scene && this.renderEnvironment) {
+      this.scene.draw(renderPass, gpuView);
+    }
   }
 
   onFrame(timestamp, timeDelta) {

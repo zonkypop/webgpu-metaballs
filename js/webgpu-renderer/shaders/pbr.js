@@ -256,22 +256,21 @@ export function PBRFragmentSource(defines) { return /*wgsl*/`
     var surface: SurfaceInfo;
     GetSurfaceInfo(input, &surface);
 
-    var Lo = vec3(0.0);
+    // TODO: Proper lighting disabled for XR debugging
+    // var Lo = vec3(0.0);
+    // for (var i = 0u; i < globalLights.lightCount; i = i + 1u) {
+    //   let gLight = &globalLights.lights[i];
+    //   var light: PuctualLight;
+    //   light.pointToLight = gLight.position.xyz - input.worldPos;
+    //   light.range = gLight.range;
+    //   light.color = gLight.color;
+    //   light.intensity = gLight.intensity;
+    //   Lo = Lo + lightRadiance(&light, &surface);
+    // }
+    // let ambient = globalLights.ambient * surface.albedo * surface.ao;
+    // let color = linearTosRGB(Lo + ambient + surface.emissive);
 
-    for (var i = 0u; i < globalLights.lightCount; i = i + 1u) {
-      let gLight = &globalLights.lights[i];
-
-      var light: PuctualLight;
-      light.pointToLight = gLight.position.xyz - input.worldPos;
-      light.range = gLight.range;
-      light.color = gLight.color;
-      light.intensity = gLight.intensity;
-
-      Lo = Lo + lightRadiance(&light, &surface);
-    }
-
-    let ambient = globalLights.ambient * surface.albedo * surface.ao;
-    let color = linearTosRGB(Lo + ambient + surface.emissive);
+    let color = linearTosRGB(surface.albedo + surface.emissive);
     return vec4(color, surface.baseColor.a);
   }`;
 };
