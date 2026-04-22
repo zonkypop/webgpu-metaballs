@@ -27,7 +27,7 @@ import { WebGPUView } from './webgpu-view.js';
 
 const SAMPLE_COUNT = 1;
 const DEPTH_FORMAT = "depth24plus";
-const CLEAR_VALUE = [0.0, 0.0, 0.0, 0.0];
+const CLEAR_VALUE = [0.1, 0.2, 0.4, 1.0];
 
 const MAX_VIEW_COUNT = 2;
 
@@ -184,6 +184,71 @@ export class WebGPURenderer extends Renderer {
     });
 
     this.lightSprites = new WebGPULightSprites(this);
+
+    // Simple test triangle pipeline — world-space triangle using view/projection
+    const triangleShader = this.device.createShaderModule({ code: /*wgsl*/`
+      struct ProjectionUniforms {
+        matrix : mat4x4f,
+        inverseMatrix : mat4x4f,
+        outputSize : vec2f,
+        zNear : f32,
+        zFar : f32,
+      }
+      @group(0) @binding(0) var<uniform> projection : ProjectionUniforms;
+
+      struct ViewUniforms {
+        matrix : mat4x4f,
+        position : vec3f,
+        time : f32,
+      }
+      @group(0) @binding(1) var<uniform> view : ViewUniforms;
+
+      struct VSOut {
+        @builtin(position) position : vec4f,
+        @location(0) color : vec3f,
+      }
+
+      @vertex fn vs(@builtin(vertex_index) i : u32) -> VSOut {
+        // Triangle at world-space position (0, 1, 0), ~0.5m wide
+        var pos = array<vec3f, 3>(
+          vec3f( 0.0,  1.5, 0.0),
+          vec3f(-0.3,  0.8, 0.0),
+          vec3f( 0.3,  0.8, 0.0),
+        );
+        var col = array<vec3f, 3>(
+          vec3f(1.0, 0.0, 0.0),
+          vec3f(0.0, 1.0, 0.0),
+          vec3f(0.0, 0.0, 1.0),
+        );
+        var out : VSOut;
+        out.position = projection.matrix * view.matrix * vec4f(pos[i], 1.0);
+        out.color = col[i];
+        return out;
+      }
+
+      @fragment fn fs(@location(0) color : vec3f) -> @location(0) vec4f {
+        return vec4f(color, 1.0);
+      }
+    `});
+
+    const triangleLayout = this.device.createPipelineLayout({
+      bindGroupLayouts: [this.bindGroupLayouts.frame],
+    });
+
+    this.trianglePipeline = this.device.createRenderPipeline({
+      layout: triangleLayout,
+      vertex: { module: triangleShader, entryPoint: 'vs' },
+      fragment: {
+        module: triangleShader,
+        entryPoint: 'fs',
+        targets: [{ format: this.renderFormat }],
+      },
+      depthStencil: {
+        format: DEPTH_FORMAT,
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+      },
+    });
   }
 
   setScene(gltf) {
@@ -195,15 +260,9 @@ export class WebGPURenderer extends Renderer {
   }
 
   renderScene(renderPass, gpuView) {
-    if (this.scene && this.renderEnvironment) {
-      this.scene.draw(renderPass, gpuView);
-    }
-
-    if (this.lightManager.render) {
-      // Last, render a sprite for all of the lights. This is done using instancing so it's a single
-      // call for every light.
-      this.lightSprites.draw(renderPass, gpuView);
-    }
+    renderPass.setPipeline(this.trianglePipeline);
+    renderPass.setBindGroup(0, gpuView.bindGroup);
+    renderPass.draw(3);
   }
 
   onFrame(timestamp, timeDelta) {
