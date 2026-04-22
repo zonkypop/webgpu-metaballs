@@ -25,8 +25,6 @@ import { WebGPULightSprites } from './webgpu-light-sprites.js';
 import { WebGPUglTF } from './webgpu-gltf.js';
 import { WebGPUView } from './webgpu-view.js';
 
-import { TimestampHelper } from './timestamp-helper.js';
-
 const SAMPLE_COUNT = 4;
 const DEPTH_FORMAT = "depth24plus";
 const CLEAR_VALUE = [0.0, 0.0, 0.0, 0.0];
@@ -74,11 +72,6 @@ export class WebGPURenderer extends Renderer {
 
     if (this.adapter.features.has('texture-compression-astc')) {
       requiredFeatures.push('texture-compression-astc');
-    }
-
-    // Enable timestamp queries if available
-    if (this.adapter.features.has('timestamp-query')) {
-      requiredFeatures.push('timestamp-query');
     }
 
     this.device = await this.adapter.requestDevice({requiredFeatures});
@@ -201,8 +194,6 @@ export class WebGPURenderer extends Renderer {
     });
 
     this.lightSprites = new WebGPULightSprites(this);
-
-    this.timestampHelper = new TimestampHelper(this.device);
   }
 
   setScene(gltf) {
@@ -236,9 +227,7 @@ export class WebGPURenderer extends Renderer {
 
     const commandEncoder = this.device.createCommandEncoder({});
 
-    const computePass = commandEncoder.beginComputePass({
-      timestampWrites: this.timestampHelper.timestampWrites('Clusters'),
-    });
+    const computePass = commandEncoder.beginComputePass();
     gpuView.clusteredLights.updateClusters(computePass);
     computePass.end();
 
@@ -266,23 +255,14 @@ export class WebGPURenderer extends Renderer {
         depthClearValue: 1.0,
         depthStoreOp: 'discard',
       },
-      timestampWrites: this.timestampHelper.timestampWrites('Rendering'),
     });
 
     this.renderScene(passEncoder, gpuView);
 
     passEncoder.end();
 
-    this.timestampHelper.resolve(commandEncoder);
-
     const commandBuffer = commandEncoder.finish();
     this.device.queue.submit([commandBuffer]);
-
-    this.timestampHelper.read().then((results) => {
-      for (let [key, result] of Object.entries(results)) {
-        this.stats.addSample(key, result);
-      }
-    });
   }
 
   async onXRStarted(options) {
@@ -321,9 +301,7 @@ export class WebGPURenderer extends Renderer {
     const commandEncoder = this.device.createCommandEncoder({});
 
     // Do a pass over the views to prep the uniforms/light clusters.
-    const computePass = commandEncoder.beginComputePass({
-      timestampWrites: this.timestampHelper.timestampWrites('Clusters'),
-    });
+    const computePass = commandEncoder.beginComputePass();
 
     const subImages = [];
 
@@ -368,7 +346,6 @@ export class WebGPURenderer extends Renderer {
             depthStoreOp: 'store',
             depthClearValue: 1.0,
           },
-          timestampWrites: this.timestampHelper.timestampWrites(`View ${viewIndex}`)
         });
 
       const vp = subImage.viewport;
@@ -379,15 +356,7 @@ export class WebGPURenderer extends Renderer {
       renderPass.end();
     }
 
-    this.timestampHelper.resolve(commandEncoder);
-
     const commandBuffer = commandEncoder.finish();
     this.device.queue.submit([commandBuffer]);
-
-    this.timestampHelper.read().then((results) => {
-      for (let [key, result] of Object.entries(results)) {
-        this.stats.addSample(key, result);
-      }
-    });
   }
 }
